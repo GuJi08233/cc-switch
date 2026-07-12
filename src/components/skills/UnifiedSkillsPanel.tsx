@@ -402,7 +402,6 @@ const UnifiedSkillsPanel = React.forwardRef<
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
-        {!isLoading && <SkillGroupsSection skills={skills ?? []} />}
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">
             {t("skills.loading")}
@@ -421,8 +420,9 @@ const UnifiedSkillsPanel = React.forwardRef<
           </div>
         ) : (
           <TooltipProvider delayDuration={300}>
-            <div className="rounded-xl border border-border-default overflow-hidden">
-              {skills.map((skill, index) => (
+            <SkillGroupsSection
+              skills={skills}
+              renderSkill={(skill, { isLast }) => (
                 <InstalledSkillListItem
                   key={skill.id}
                   skill={skill}
@@ -434,10 +434,10 @@ const UnifiedSkillsPanel = React.forwardRef<
                   onToggleApp={handleToggleApp}
                   onUninstall={() => handleUninstall(skill)}
                   onUpdate={() => handleUpdateSkill(skill)}
-                  isLast={index === skills.length - 1}
+                  isLast={isLast}
                 />
-              ))}
-            </div>
+              )}
+            />
           </TooltipProvider>
         )}
       </div>
@@ -562,7 +562,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
       />
 
       <div
-        className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
         style={hasUpdate ? { opacity: 1 } : undefined}
       >
         {hasUpdate && onUpdate && (
@@ -573,6 +573,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
             className="h-7 w-7 hover:text-blue-500 hover:bg-blue-100 dark:hover:text-blue-400 dark:hover:bg-blue-500/10"
             onClick={onUpdate}
             disabled={isUpdating}
+            aria-label={t("skills.update")}
             title={t("skills.update")}
           >
             {isUpdating ? (
@@ -588,6 +589,7 @@ const InstalledSkillListItem: React.FC<InstalledSkillListItemProps> = ({
           size="icon"
           className="h-7 w-7 hover:text-red-500 hover:bg-red-100 dark:hover:text-red-400 dark:hover:bg-red-500/10"
           onClick={onUninstall}
+          aria-label={t("skills.uninstall")}
           title={t("skills.uninstall")}
         >
           <Trash2 size={14} />

@@ -2190,6 +2190,9 @@
       "namePlaceholder": "Group name",
       "empty": "No groups yet. Create one to organize installed skills.",
       "memberCount": "{{count}} members",
+      "expandGroup": "Expand group {{name}}",
+      "collapseGroup": "Collapse group {{name}}",
+      "emptyGroup": "This group has no skills. Use member management to add some.",
       "batchApps": "Bulk app toggles",
       "appState": "{{app}}: {{state}}",
       "states": {

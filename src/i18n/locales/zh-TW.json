@@ -2162,6 +2162,9 @@
       "namePlaceholder": "群組名稱",
       "empty": "尚無群組，建立群組以整理已安裝技能",
       "memberCount": "{{count}} 個成員",
+      "expandGroup": "展開群組「{{name}}」",
+      "collapseGroup": "收合群組「{{name}}」",
+      "emptyGroup": "此群組暫無 Skill，可透過成員管理新增",
       "batchApps": "批次應用程式開關",
       "appState": "{{app}}：{{state}}",
       "states": {

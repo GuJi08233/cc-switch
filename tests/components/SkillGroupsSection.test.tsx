@@ -68,6 +68,10 @@ const makeSkill = (
   updatedAt: 1,
 });
 
+const renderSkill = (skill: InstalledSkill) => (
+  <div data-testid={`skill-${skill.id}`}>{skill.name}</div>
+);
+
 describe("SkillGroupsSection", () => {
   beforeEach(() => {
     groups = [{ id: "group-1", name: "Frontend", skillIds: ["a", "b"] }];
@@ -89,6 +93,7 @@ describe("SkillGroupsSection", () => {
     render(
       <SkillGroupsSection
         skills={[makeSkill("a", "Alpha", true), makeSkill("b", "Beta", false)]}
+        renderSkill={renderSkill}
       />,
     );
 
@@ -105,12 +110,82 @@ describe("SkillGroupsSection", () => {
     });
   });
 
+  it("hides grouped skills at the root and reveals them when the group expands", async () => {
+    const user = userEvent.setup();
+    render(
+      <SkillGroupsSection
+        skills={[
+          makeSkill("a", "Alpha", true),
+          makeSkill("b", "Beta", false),
+          makeSkill("c", "Gamma", false),
+        ]}
+        renderSkill={renderSkill}
+      />,
+    );
+
+    expect(screen.queryByTestId("skill-a")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("skill-b")).not.toBeInTheDocument();
+    expect(screen.getByTestId("skill-c")).toBeInTheDocument();
+
+    const expandButton = screen.getByRole("button", {
+      name: "skills.groups.expandGroup",
+    });
+    expect(expandButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(expandButton);
+
+    expect(screen.getByTestId("skill-a")).toBeInTheDocument();
+    expect(screen.getByTestId("skill-b")).toBeInTheDocument();
+    expect(screen.getByTestId("skill-c")).toBeInTheDocument();
+    expect(expandButton).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("shows a shared skill in every expanded group without a root duplicate", async () => {
+    groups = [
+      { id: "group-1", name: "Frontend", skillIds: ["a"] },
+      { id: "group-2", name: "Testing", skillIds: ["a"] },
+    ];
+    const user = userEvent.setup();
+    render(
+      <SkillGroupsSection
+        skills={[makeSkill("a", "Alpha", true)]}
+        renderSkill={renderSkill}
+      />,
+    );
+
+    expect(screen.queryByTestId("skill-a")).not.toBeInTheDocument();
+    const expandButtons = screen.getAllByRole("button", {
+      name: "skills.groups.expandGroup",
+    });
+    await user.click(expandButtons[0]);
+    await user.click(expandButtons[1]);
+    expect(screen.getAllByTestId("skill-a")).toHaveLength(2);
+  });
+
+  it("treats stale member ids as an empty group and keeps valid skills ungrouped", () => {
+    groups = [{ id: "group-1", name: "Broken", skillIds: ["missing"] }];
+    render(
+      <SkillGroupsSection
+        skills={[makeSkill("a", "Alpha", true)]}
+        renderSkill={renderSkill}
+      />,
+    );
+
+    expect(screen.getByTestId("skill-a")).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "Broken" });
+    expect(
+      within(group).getAllByRole("button", {
+        name: "skills.groups.appState",
+      })[0],
+    ).toBeDisabled();
+  });
+
   it("allows selecting installed skills as reusable group members", async () => {
     groups = [{ id: "group-1", name: "Frontend", skillIds: ["a"] }];
     const user = userEvent.setup();
     render(
       <SkillGroupsSection
         skills={[makeSkill("a", "Alpha", true), makeSkill("b", "Beta", false)]}
+        renderSkill={renderSkill}
       />,
     );
 
@@ -144,6 +219,7 @@ describe("SkillGroupsSection", () => {
     render(
       <SkillGroupsSection
         skills={[makeSkill("a", "Alpha", true), makeSkill("b", "Beta", false)]}
+        renderSkill={renderSkill}
       />,
     );
 
@@ -163,7 +239,12 @@ describe("SkillGroupsSection", () => {
 
   it("confirms deletion and makes clear that skills are not uninstalled", async () => {
     const user = userEvent.setup();
-    render(<SkillGroupsSection skills={[makeSkill("a", "Alpha", true)]} />);
+    render(
+      <SkillGroupsSection
+        skills={[makeSkill("a", "Alpha", true)]}
+        renderSkill={renderSkill}
+      />,
+    );
 
     await user.click(
       screen.getByRole("button", { name: "skills.groups.delete" }),

@@ -2190,6 +2190,9 @@
       "namePlaceholder": "グループ名",
       "empty": "グループはありません。作成してインストール済みスキルを整理できます。",
       "memberCount": "{{count}} 件のメンバー",
+      "expandGroup": "グループ「{{name}}」を展開",
+      "collapseGroup": "グループ「{{name}}」を折りたたむ",
+      "emptyGroup": "このグループには Skill がありません。メンバー管理から追加できます。",
       "batchApps": "アプリ一括切り替え",
       "appState": "{{app}}：{{state}}",
       "states": {

@@ -1,6 +1,14 @@
-import { useMemo, useState } from "react";
+import { Fragment, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderPlus, Loader2, Pencil, Trash2, Users } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FolderPlus,
+  Loader2,
+  Pencil,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { APP_ICON_MAP, SKILLS_APP_IDS } from "@/config/appConfig";
@@ -30,6 +38,10 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface SkillGroupsSectionProps {
   skills: InstalledSkill[];
+  renderSkill: (
+    skill: InstalledSkill,
+    options: { isLast: boolean },
+  ) => ReactNode;
 }
 
 type GroupAppState = "enabled" | "disabled" | "mixed";
@@ -49,7 +61,10 @@ function getGroupAppState(
   return "mixed";
 }
 
-export function SkillGroupsSection({ skills }: SkillGroupsSectionProps) {
+export function SkillGroupsSection({
+  skills,
+  renderSkill,
+}: SkillGroupsSectionProps) {
   const { t } = useTranslation();
   const { data: groups = [], isLoading } = useSkillGroups();
   const createMutation = useCreateSkillGroup();
@@ -66,11 +81,41 @@ export function SkillGroupsSection({ skills }: SkillGroupsSectionProps) {
     new Set(),
   );
   const [deletingGroup, setDeletingGroup] = useState<SkillGroup | null>(null);
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const skillsById = useMemo(
     () => new Map(skills.map((skill) => [skill.id, skill])),
     [skills],
   );
+
+  const groupEntries = useMemo(
+    () =>
+      groups.map((group) => ({
+        group,
+        members: group.skillIds
+          .map((id) => skillsById.get(id))
+          .filter((skill): skill is InstalledSkill => Boolean(skill)),
+      })),
+    [groups, skillsById],
+  );
+
+  const ungroupedSkills = useMemo(() => {
+    const groupedSkillIds = new Set(
+      groupEntries.flatMap(({ members }) => members.map((skill) => skill.id)),
+    );
+    return skills.filter((skill) => !groupedSkillIds.has(skill.id));
+  }, [groupEntries, skills]);
+
+  const toggleExpanded = (groupId: string) => {
+    setExpandedGroupIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     const name = newName.trim();
@@ -193,8 +238,8 @@ export function SkillGroupsSection({ skills }: SkillGroupsSectionProps) {
   };
 
   return (
-    <section className="mb-4 rounded-xl border border-border-default bg-card/50 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
             {t("skills.groups.title")}
@@ -232,108 +277,176 @@ export function SkillGroupsSection({ skills }: SkillGroupsSectionProps) {
         </div>
       </div>
 
-      <div className="mt-3 space-y-2">
+      <div className="overflow-hidden rounded-xl border border-border-default">
         {isLoading ? (
-          <div className="py-3 text-center text-xs text-muted-foreground">
+          <div className="py-8 text-center text-xs text-muted-foreground">
             {t("common.loading")}
           </div>
-        ) : groups.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border-default px-3 py-4 text-center text-xs text-muted-foreground">
-            {t("skills.groups.empty")}
-          </div>
         ) : (
-          groups.map((group) => (
-            <div
-              key={group.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-border-default bg-background/70 px-3 py-2.5"
-            >
-              <div className="min-w-32 flex-1">
-                <div className="text-sm font-medium text-foreground">
-                  {group.name}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {t("skills.groups.memberCount", {
-                    count: group.skillIds.filter((id) => skillsById.has(id))
-                      .length,
-                  })}
-                </div>
-              </div>
+          <>
+            {groupEntries.map(({ group, members }, groupIndex) => {
+              const isExpanded = expandedGroupIds.has(group.id);
+              const hasFollowingItem =
+                groupIndex < groupEntries.length - 1 ||
+                ungroupedSkills.length > 0;
+              const contentId = `skill-group-${group.id}-members`;
 
-              <div
-                className="flex items-center gap-1.5"
-                aria-label={t("skills.groups.batchApps")}
-              >
-                {SKILLS_APP_IDS.map((app) => {
-                  const state = getGroupAppState(group, skillsById, app);
-                  const config = APP_ICON_MAP[app];
-                  return (
+              return (
+                <div
+                  key={group.id}
+                  role="group"
+                  aria-label={group.name}
+                  className={
+                    hasFollowingItem ? "border-b border-border-default" : ""
+                  }
+                >
+                  <div
+                    className={`group flex flex-wrap items-center gap-3 bg-card/40 px-3 py-2.5 transition-colors hover:bg-muted/40 ${
+                      isExpanded ? "border-b border-border-default" : ""
+                    }`}
+                  >
                     <button
-                      key={app}
                       type="button"
-                      onClick={() => void handleToggleApp(group, app, state)}
-                      disabled={
-                        group.skillIds.length === 0 ||
-                        toggleAppMutation.isPending
-                      }
-                      className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
-                        state === "enabled"
-                          ? config.activeClass
-                          : state === "mixed"
-                            ? "border-amber-400 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                            : "border-transparent opacity-35 hover:opacity-70"
-                      }`}
-                      aria-label={t("skills.groups.appState", {
-                        app: config.label,
-                        state: t(`skills.groups.states.${state}`),
-                      })}
-                      title={t("skills.groups.appState", {
-                        app: config.label,
-                        state: t(`skills.groups.states.${state}`),
-                      })}
-                    >
-                      {config.icon}
-                      {state === "mixed" && (
-                        <span className="absolute bottom-0.5 left-1 right-1 h-0.5 rounded bg-amber-500" />
+                      className="flex min-w-32 flex-1 items-center gap-2 text-left"
+                      onClick={() => toggleExpanded(group.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={contentId}
+                      aria-label={t(
+                        isExpanded
+                          ? "skills.groups.collapseGroup"
+                          : "skills.groups.expandGroup",
+                        { name: group.name },
                       )}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {group.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {t("skills.groups.memberCount", {
+                            count: members.length,
+                          })}
+                        </span>
+                      </span>
                     </button>
-                  );
-                })}
-              </div>
 
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openMembers(group)}
-                  title={t("skills.groups.manageMembers")}
-                >
-                  <Users className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openRename(group)}
-                  title={t("skills.groups.rename")}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                  onClick={() => setDeletingGroup(group)}
-                  title={t("skills.groups.delete")}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))
+                    <div
+                      className="flex items-center gap-1.5"
+                      aria-label={t("skills.groups.batchApps")}
+                    >
+                      {SKILLS_APP_IDS.map((app) => {
+                        const state = getGroupAppState(group, skillsById, app);
+                        const config = APP_ICON_MAP[app];
+                        return (
+                          <button
+                            key={app}
+                            type="button"
+                            onClick={() =>
+                              void handleToggleApp(group, app, state)
+                            }
+                            disabled={
+                              members.length === 0 ||
+                              toggleAppMutation.isPending
+                            }
+                            className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
+                              state === "enabled"
+                                ? config.activeClass
+                                : state === "mixed"
+                                  ? "border-amber-400 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                  : "border-transparent opacity-35 hover:opacity-70"
+                            }`}
+                            aria-pressed={
+                              state === "mixed" ? "mixed" : state === "enabled"
+                            }
+                            aria-label={t("skills.groups.appState", {
+                              app: config.label,
+                              state: t(`skills.groups.states.${state}`),
+                            })}
+                            title={t("skills.groups.appState", {
+                              app: config.label,
+                              state: t(`skills.groups.states.${state}`),
+                            })}
+                          >
+                            {config.icon}
+                            {state === "mixed" && (
+                              <span className="absolute bottom-0.5 left-1 right-1 h-0.5 rounded bg-amber-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openMembers(group)}
+                        aria-label={t("skills.groups.manageMembers")}
+                        title={t("skills.groups.manageMembers")}
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openRename(group)}
+                        aria-label={t("skills.groups.rename")}
+                        title={t("skills.groups.rename")}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                        onClick={() => setDeletingGroup(group)}
+                        aria-label={t("skills.groups.delete")}
+                        title={t("skills.groups.delete")}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div id={contentId} className="bg-muted/15 pl-4">
+                      {members.length === 0 ? (
+                        <div className="px-4 py-5 text-center text-xs text-muted-foreground">
+                          {t("skills.groups.emptyGroup")}
+                        </div>
+                      ) : (
+                        members.map((skill, index) => (
+                          <Fragment key={skill.id}>
+                            {renderSkill(skill, {
+                              isLast: index === members.length - 1,
+                            })}
+                          </Fragment>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {ungroupedSkills.map((skill, index) => (
+              <Fragment key={skill.id}>
+                {renderSkill(skill, {
+                  isLast: index === ungroupedSkills.length - 1,
+                })}
+              </Fragment>
+            ))}
+          </>
         )}
       </div>
 
@@ -457,6 +570,6 @@ export function SkillGroupsSection({ skills }: SkillGroupsSectionProps) {
           onCancel={() => setDeletingGroup(null)}
         />
       )}
-    </section>
+    </>
   );
 }

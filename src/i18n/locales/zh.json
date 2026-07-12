@@ -2190,6 +2190,9 @@
       "namePlaceholder": "分组名称",
       "empty": "暂无分组，创建一个分组来整理已安装技能",
       "memberCount": "{{count}} 个成员",
+      "expandGroup": "展开分组“{{name}}”",
+      "collapseGroup": "收起分组“{{name}}”",
+      "emptyGroup": "此分组暂无 Skill，可通过成员管理添加",
       "batchApps": "批量应用开关",
       "appState": "{{app}}：{{state}}",
       "states": {
