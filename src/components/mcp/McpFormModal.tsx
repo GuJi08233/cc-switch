@@ -362,7 +362,7 @@ const McpFormModal: React.FC<McpFormModalProps> = ({
         id: trimmedId,
         name: finalName,
         server: serverSpec,
-        apps: enabledApps,
+        apps: { ...enabledApps, mimocode: false },
       };
 
       const descriptionTrimmed = formDescription.trim();

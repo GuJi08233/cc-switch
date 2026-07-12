@@ -197,6 +197,7 @@ function App() {
     opencode: true,
     openclaw: true,
     hermes: true,
+    mimocode: true,
   };
 
   const getFirstVisibleApp = (): AppId => {

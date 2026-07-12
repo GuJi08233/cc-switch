@@ -22,7 +22,8 @@ use crate::store::AppState;
 
 // Re-export sub-module functions for external access
 pub use live::{
-    import_default_config, import_hermes_providers_from_live, import_openclaw_providers_from_live,
+    import_default_config, import_hermes_providers_from_live,
+    import_mimocode_providers_from_live, import_openclaw_providers_from_live,
     import_opencode_providers_from_live, read_live_settings,
     should_import_default_config_on_startup, sync_current_to_live,
     update_toml_common_config_snippet,
@@ -2314,6 +2315,9 @@ impl ProviderService {
             AppType::Hermes => {
                 remove_hermes_provider_from_live(id)?;
             }
+            AppType::MiMoCode => {
+                crate::mimocode_config::remove_provider(id)?;
+            }
             _ => {
                 return Err(AppError::Message(format!(
                     "App {} does not support remove from live config",
@@ -2835,6 +2839,7 @@ impl ProviderService {
             AppType::OpenCode => Self::extract_opencode_common_config(&provider.settings_config),
             AppType::OpenClaw => Self::extract_openclaw_common_config(&provider.settings_config),
             AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
+            AppType::MiMoCode => Ok(String::new()), // MiMoCode doesn't use common config snippets
         }
     }
 
@@ -2851,6 +2856,7 @@ impl ProviderService {
             AppType::OpenCode => Self::extract_opencode_common_config(settings_config),
             AppType::OpenClaw => Self::extract_openclaw_common_config(settings_config),
             AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
+            AppType::MiMoCode => Ok(String::new()), // MiMoCode doesn't use common config snippets
         }
     }
 
@@ -3345,6 +3351,16 @@ impl ProviderService {
                     ));
                 }
             }
+            AppType::MiMoCode => {
+                // MiMoCode: accept any JSON object for now
+                if !provider.settings_config.is_object() {
+                    return Err(AppError::localized(
+                        "provider.mimocode.settings.not_object",
+                        "MiMoCode 配置必须是 JSON 对象",
+                        "MiMoCode configuration must be a JSON object",
+                    ));
+                }
+            }
         }
 
         // Validate and clean UsageScript configuration (common for all app types)
@@ -3527,8 +3543,8 @@ impl ProviderService {
 
                 Ok((api_key, base_url))
             }
-            AppType::OpenClaw | AppType::Hermes => {
-                // OpenClaw/Hermes use apiKey and baseUrl directly on the object
+            AppType::OpenClaw | AppType::Hermes | AppType::MiMoCode => {
+                // OpenClaw/Hermes/MiMoCode use apiKey and baseUrl directly on the object
                 let api_key = provider
                     .settings_config
                     .get("apiKey")

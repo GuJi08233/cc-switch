@@ -43,6 +43,9 @@ impl McpService {
         if prev_apps.hermes && !server.apps.hermes {
             Self::remove_server_from_app(state, &server.id, &AppType::Hermes)?;
         }
+        if prev_apps.mimocode && !server.apps.mimocode {
+            Self::remove_server_from_app(state, &server.id, &AppType::MiMoCode)?;
+        }
 
         // 同步到各个启用的应用
         Self::sync_server_to_apps(state, &server)?;
@@ -137,6 +140,9 @@ impl McpService {
             AppType::Hermes => {
                 mcp::sync_single_server_to_hermes(&Default::default(), &server.id, &server.server)?;
             }
+            AppType::MiMoCode => {
+                mcp::sync_single_server_to_mimocode(&Default::default(), &server.id, &server.server)?;
+            }
         }
         Ok(())
     }
@@ -171,6 +177,9 @@ impl McpService {
             }
             AppType::Hermes => {
                 mcp::remove_server_from_hermes(id)?;
+            }
+            AppType::MiMoCode => {
+                mcp::remove_server_from_mimocode(id)?;
             }
         }
         Ok(())

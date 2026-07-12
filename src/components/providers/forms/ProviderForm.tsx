@@ -50,9 +50,13 @@ import {
   hermesProviderPresets,
   type HermesProviderPreset,
 } from "@/config/hermesProviderPresets";
+import {
+  mimocodeProviderPresets,
+} from "@/config/mimocodeProviderPresets";
 import { OpenCodeFormFields } from "./OpenCodeFormFields";
 import { OpenClawFormFields } from "./OpenClawFormFields";
 import { HermesFormFields } from "./HermesFormFields";
+import { MiMoCodeFormFields } from "./MiMoCodeFormFields";
 import type { UniversalProviderPreset } from "@/config/universalProviderPresets";
 import {
   applyTemplateValues,
@@ -103,6 +107,7 @@ import {
   useOmoDraftState,
   useOpenclawFormState,
   useHermesFormState,
+  useMimocodeFormState,
   useCopilotAuth,
   useCodexOauth,
 } from "./hooks";
@@ -120,6 +125,7 @@ import { HERMES_DEFAULT_CONFIG } from "./hooks/useHermesFormState";
 import { resolveManagedAccountId } from "@/lib/authBinding";
 import { useOpenClawLiveProviderIds } from "@/hooks/useOpenClaw";
 import { useHermesLiveProviderIds } from "@/hooks/useHermes";
+import { useMimocodeLiveProviderIds } from "@/hooks/useMimocode";
 
 type PresetEntry = {
   id: string;
@@ -686,6 +692,11 @@ function ProviderFormFull({
         id: `hermes-${index}`,
         preset,
       }));
+    } else if (appId === "mimocode") {
+      return mimocodeProviderPresets.map<PresetEntry>((preset, index) => ({
+        id: `mimocode-${index}`,
+        preset,
+      }));
     }
     return providerPresets
       .filter((p) => !p.hidden)
@@ -893,6 +904,17 @@ function ProviderFormFull({
     isLoading: isHermesLiveProviderIdsLoading,
   } = useHermesLiveProviderIds(appId === "hermes");
 
+  const mimocodeForm = useMimocodeFormState({
+    initialData,
+    appId,
+    providerId,
+    onSettingsConfigChange: (config) => form.setValue("settingsConfig", config),
+    getSettingsConfig: () => form.getValues("settingsConfig"),
+  });
+  const {
+    data: mimocodeLiveProviderIds = [],
+  } = useMimocodeLiveProviderIds(appId === "mimocode");
+
   const additiveExistingProviderKeys = useMemo(() => {
     if (appId === "opencode" && !isAnyOmoCategory) {
       return Array.from(
@@ -919,6 +941,16 @@ function ProviderFormFull({
       return Array.from(
         new Set(
           [...hermesForm.existingHermesKeys, ...hermesLiveProviderIds].filter(
+            (key) => key !== providerId,
+          ),
+        ),
+      );
+    }
+
+    if (appId === "mimocode") {
+      return Array.from(
+        new Set(
+          [...mimocodeForm.existingMimocodeKeys, ...mimocodeLiveProviderIds].filter(
             (key) => key !== providerId,
           ),
         ),
@@ -2304,6 +2336,27 @@ function ProviderFormFull({
               onRateLimitDelayChange={
                 hermesForm.handleHermesRateLimitDelayChange
               }
+            />
+          )}
+
+          {/* MiMoCode 专属字段 */}
+          {appId === "mimocode" && (
+            <MiMoCodeFormFields
+              npm={mimocodeForm.mimocodeNpm}
+              apiKey={mimocodeForm.mimocodeApiKey}
+              baseUrl={mimocodeForm.mimocodeBaseUrl}
+              headers={mimocodeForm.mimocodeHeaders}
+              models={mimocodeForm.mimocodeModels}
+              extraOptions={mimocodeForm.mimocodeExtraOptions}
+              category={category}
+              shouldShowApiKeyLink={false}
+              websiteUrl=""
+              onNpmChange={mimocodeForm.handleMimocodeNpmChange}
+              onApiKeyChange={mimocodeForm.handleMimocodeApiKeyChange}
+              onBaseUrlChange={mimocodeForm.handleMimocodeBaseUrlChange}
+              onHeadersChange={mimocodeForm.handleMimocodeHeadersChange}
+              onModelsChange={mimocodeForm.handleMimocodeModelsChange}
+              onExtraOptionsChange={mimocodeForm.handleMimocodeExtraOptionsChange}
             />
           )}
 

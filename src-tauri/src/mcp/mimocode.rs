@@ -1,10 +1,10 @@
-//! OpenCode MCP 同步和导入模块
+//! MiMoCode MCP 同步和导入模块
 //!
-//! 本模块处理 CC Switch 统一 MCP 格式与 OpenCode 格式之间的转换。
+//! 本模块处理 CC Switch 统一 MCP 格式与 MiMoCode 格式之间的转换。
 //!
 //! ## 格式差异
 //!
-//! | CC Switch 统一格式    | OpenCode 格式       |
+//! | CC Switch 统一格式    | MiMoCode 格式       |
 //! |----------------------|---------------------|
 //! | `type: "stdio"`      | `type: "local"`     |
 //! | `command` + `args`   | `command: [cmd, ...args]` |
@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use crate::app_config::{McpApps, McpServer, MultiAppConfig};
 use crate::error::AppError;
-use crate::opencode_config;
+use crate::mimocode_config;
 
 use super::validation::validate_server_spec;
 
@@ -25,22 +25,22 @@ use super::validation::validate_server_spec;
 // Helper Functions
 // ============================================================================
 
-/// Check if OpenCode MCP sync should proceed
-fn should_sync_opencode_mcp() -> bool {
-    // Skip if OpenCode config directory doesn't exist
-    opencode_config::get_opencode_dir().exists()
+/// Check if MiMoCode MCP sync should proceed
+fn should_sync_mimocode_mcp() -> bool {
+    // Skip if MiMoCode config directory doesn't exist
+    mimocode_config::get_mimocode_dir().exists()
 }
 
 // ============================================================================
-// Format Conversion: CC Switch → OpenCode
+// Format Conversion: CC Switch → MiMoCode
 // ============================================================================
 
-/// Convert CC Switch unified format to OpenCode format
+/// Convert CC Switch unified format to MiMoCode format
 ///
 /// Conversion rules:
 /// - `stdio` → `local`, command+args → command array, env → environment
 /// - `sse`/`http` → `remote`, url preserved
-pub fn convert_to_opencode_format(spec: &Value) -> Result<Value, AppError> {
+pub fn convert_to_mimocode_format(spec: &Value) -> Result<Value, AppError> {
     let obj = spec
         .as_object()
         .ok_or_else(|| AppError::McpValidation("MCP spec must be a JSON object".into()))?;
@@ -72,7 +72,7 @@ pub fn convert_to_opencode_format(spec: &Value) -> Result<Value, AppError> {
                 }
             }
 
-            // Add enabled flag (OpenCode expects this)
+            // Add enabled flag (MiMoCode expects this)
             result.insert("enabled".into(), json!(true));
         }
         "sse" | "http" => {
@@ -104,18 +104,18 @@ pub fn convert_to_opencode_format(spec: &Value) -> Result<Value, AppError> {
 }
 
 // ============================================================================
-// Format Conversion: OpenCode → CC Switch
+// Format Conversion: MiMoCode → CC Switch
 // ============================================================================
 
-/// Convert OpenCode format to CC Switch unified format
+/// Convert MiMoCode format to CC Switch unified format
 ///
 /// Conversion rules:
 /// - `local` → `stdio`, command array → command+args, environment → env
 /// - `remote` → `sse`, url preserved
-pub fn convert_from_opencode_format(spec: &Value) -> Result<Value, AppError> {
+pub fn convert_from_mimocode_format(spec: &Value) -> Result<Value, AppError> {
     let obj = spec
         .as_object()
-        .ok_or_else(|| AppError::McpValidation("OpenCode MCP spec must be a JSON object".into()))?;
+        .ok_or_else(|| AppError::McpValidation("MiMoCode MCP spec must be a JSON object".into()))?;
 
     let typ = obj.get("type").and_then(|v| v.as_str()).unwrap_or("local");
 
@@ -168,7 +168,7 @@ pub fn convert_from_opencode_format(spec: &Value) -> Result<Value, AppError> {
         }
         _ => {
             return Err(AppError::McpValidation(format!(
-                "Unknown OpenCode MCP type: {typ}"
+                "Unknown MiMoCode MCP type: {typ}"
             )));
         }
     }
@@ -180,37 +180,37 @@ pub fn convert_from_opencode_format(spec: &Value) -> Result<Value, AppError> {
 // Public API: Sync Functions
 // ============================================================================
 
-/// Sync a single MCP server to OpenCode live config
-pub fn sync_single_server_to_opencode(
+/// Sync a single MCP server to MiMoCode live config
+pub fn sync_single_server_to_mimocode(
     _config: &MultiAppConfig,
     id: &str,
     server_spec: &Value,
 ) -> Result<(), AppError> {
-    if !should_sync_opencode_mcp() {
+    if !should_sync_mimocode_mcp() {
         return Ok(());
     }
 
-    // Convert to OpenCode format
-    let opencode_spec = convert_to_opencode_format(server_spec)?;
+    // Convert to MiMoCode format
+    let mimocode_spec = convert_to_mimocode_format(server_spec)?;
 
-    // Set in OpenCode config
-    opencode_config::set_mcp_server(id, opencode_spec)
+    // Set in MiMoCode config
+    mimocode_config::set_mcp_server(id, mimocode_spec)
 }
 
-/// Remove a single MCP server from OpenCode live config
-pub fn remove_server_from_opencode(id: &str) -> Result<(), AppError> {
-    if !should_sync_opencode_mcp() {
+/// Remove a single MCP server from MiMoCode live config
+pub fn remove_server_from_mimocode(id: &str) -> Result<(), AppError> {
+    if !should_sync_mimocode_mcp() {
         return Ok(());
     }
 
-    opencode_config::remove_mcp_server(id)
+    mimocode_config::remove_mcp_server(id)
 }
 
-/// Import MCP servers from OpenCode config to unified structure
+/// Import MCP servers from MiMoCode config to unified structure
 ///
-/// Existing servers will have OpenCode app enabled without overwriting other fields.
-pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppError> {
-    let mcp_map = opencode_config::get_mcp_servers()?;
+/// Existing servers will have MiMoCode app enabled without overwriting other fields.
+pub fn import_from_mimocode(config: &mut MultiAppConfig) -> Result<usize, AppError> {
+    let mcp_map = mimocode_config::get_mcp_servers()?;
     if mcp_map.is_empty() {
         return Ok(0);
     }
@@ -222,11 +222,11 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
     let mut errors = Vec::new();
 
     for (id, spec) in mcp_map {
-        // Convert from OpenCode format to unified format
-        let unified_spec = match convert_from_opencode_format(&spec) {
+        // Convert from MiMoCode format to unified format
+        let unified_spec = match convert_from_mimocode_format(&spec) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("Skip invalid OpenCode MCP server '{id}': {e}");
+                log::warn!("Skip invalid MiMoCode MCP server '{id}': {e}");
                 errors.push(format!("{id}: {e}"));
                 continue;
             }
@@ -240,14 +240,14 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
         }
 
         if let Some(existing) = servers.get_mut(&id) {
-            // Existing server: just enable OpenCode app
-            if !existing.apps.opencode {
-                existing.apps.opencode = true;
+            // Existing server: just enable MiMoCode app
+            if !existing.apps.mimocode {
+                existing.apps.mimocode = true;
                 changed += 1;
-                log::info!("MCP server '{id}' enabled for OpenCode");
+                log::info!("MCP server '{id}' enabled for MiMoCode");
             }
         } else {
-            // New server: default to only OpenCode enabled
+            // New server: default to only MiMoCode enabled
             servers.insert(
                 id.clone(),
                 McpServer {
@@ -258,9 +258,9 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
                         claude: false,
                         codex: false,
                         gemini: false,
-                        opencode: true,
+                        opencode: false,
                         hermes: false,
-                        mimocode: false,
+                        mimocode: true,
                     },
                     description: None,
                     homepage: None,
@@ -269,7 +269,7 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
                 },
             );
             changed += 1;
-            log::info!("Imported new MCP server '{id}' from OpenCode");
+            log::info!("Imported new MCP server '{id}' from MiMoCode");
         }
     }
 
@@ -282,75 +282,4 @@ pub fn import_from_opencode(config: &mut MultiAppConfig) -> Result<usize, AppErr
     }
 
     Ok(changed)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_convert_stdio_to_local() {
-        let spec = json!({
-            "type": "stdio",
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem"],
-            "env": { "HOME": "/Users/test" }
-        });
-
-        let result = convert_to_opencode_format(&spec).unwrap();
-        assert_eq!(result["type"], "local");
-        assert_eq!(result["command"][0], "npx");
-        assert_eq!(result["command"][1], "-y");
-        assert_eq!(
-            result["command"][2],
-            "@modelcontextprotocol/server-filesystem"
-        );
-        assert_eq!(result["environment"]["HOME"], "/Users/test");
-        assert_eq!(result["enabled"], true);
-    }
-
-    #[test]
-    fn test_convert_sse_to_remote() {
-        let spec = json!({
-            "type": "sse",
-            "url": "https://example.com/mcp",
-            "headers": { "Authorization": "Bearer xxx" }
-        });
-
-        let result = convert_to_opencode_format(&spec).unwrap();
-        assert_eq!(result["type"], "remote");
-        assert_eq!(result["url"], "https://example.com/mcp");
-        assert_eq!(result["headers"]["Authorization"], "Bearer xxx");
-        assert_eq!(result["enabled"], true);
-    }
-
-    #[test]
-    fn test_convert_local_to_stdio() {
-        let spec = json!({
-            "type": "local",
-            "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem"],
-            "environment": { "HOME": "/Users/test" }
-        });
-
-        let result = convert_from_opencode_format(&spec).unwrap();
-        assert_eq!(result["type"], "stdio");
-        assert_eq!(result["command"], "npx");
-        assert_eq!(result["args"][0], "-y");
-        assert_eq!(result["args"][1], "@modelcontextprotocol/server-filesystem");
-        assert_eq!(result["env"]["HOME"], "/Users/test");
-    }
-
-    #[test]
-    fn test_convert_remote_to_sse() {
-        let spec = json!({
-            "type": "remote",
-            "url": "https://example.com/mcp",
-            "headers": { "Authorization": "Bearer xxx" }
-        });
-
-        let result = convert_from_opencode_format(&spec).unwrap();
-        assert_eq!(result["type"], "sse");
-        assert_eq!(result["url"], "https://example.com/mcp");
-        assert_eq!(result["headers"]["Authorization"], "Bearer xxx");
-    }
 }

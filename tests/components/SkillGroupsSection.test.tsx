@@ -63,6 +63,7 @@ const makeSkill = (
     opencode: false,
     openclaw: false,
     hermes: false,
+    mimocode: false,
   },
   installedAt: 1,
   updatedAt: 1,
