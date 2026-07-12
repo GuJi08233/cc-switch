@@ -96,7 +96,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release-assets/* \
+          mkdir -p publish-assets
+          find release-assets -type f \( -name '*.msi' -o -name 'cc-switch.exe' \) \
+            -exec cp '{}' publish-assets/ \;
+          test -n "$(find publish-assets -maxdepth 1 -type f -print -quit)"
+          gh release create "$GITHUB_REF_NAME" publish-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --title "CC Switch Windows x64 - $GITHUB_REF_NAME" \
             --prerelease \
