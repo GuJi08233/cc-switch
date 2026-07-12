@@ -11,6 +11,7 @@ import {
   type ImportSkillSelection,
   type InstalledSkill,
   type SkillUpdateInfo,
+  type SkillGroup,
   type SkillsShSearchResult,
 } from "@/lib/api/skills";
 import type { AppId } from "@/lib/api/types";
@@ -143,6 +144,16 @@ export function useUninstallSkill() {
           });
         },
       );
+
+      // 数据库会级联删除分组成员关系；同步更新并失效分组缓存，
+      // 避免 staleTime: Infinity 保留已卸载 Skill 的 ID。
+      queryClient.setQueryData<SkillGroup[]>(["skills", "groups"], (oldData) =>
+        oldData?.map((group) => ({
+          ...group,
+          skillIds: group.skillIds.filter((id) => id !== _vars.id),
+        })),
+      );
+      queryClient.invalidateQueries({ queryKey: ["skills", "groups"] });
     },
   });
 }
@@ -332,6 +343,86 @@ export function useUpdateSkill() {
   });
 }
 
+// ========== Skill 分组 ==========
+
+export function useSkillGroups() {
+  return useQuery({
+    queryKey: ["skills", "groups"],
+    queryFn: () => skillsApi.getGroups(),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateSkillGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => skillsApi.createGroup(name),
+    onSuccess: (group) => {
+      queryClient.setQueryData<SkillGroup[]>(["skills", "groups"], (old) => [
+        ...(old ?? []),
+        group,
+      ]);
+    },
+  });
+}
+
+export function useUpdateSkillGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      skillsApi.updateGroup(id, name),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SkillGroup[]>(["skills", "groups"], (old) =>
+        old?.map((group) => (group.id === updated.id ? updated : group)),
+      );
+    },
+  });
+}
+
+export function useDeleteSkillGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => skillsApi.deleteGroup(id),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<SkillGroup[]>(["skills", "groups"], (old) =>
+        old?.filter((group) => group.id !== id),
+      );
+    },
+  });
+}
+
+export function useSetSkillGroupMembers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, skillIds }: { id: string; skillIds: string[] }) =>
+      skillsApi.setGroupMembers(id, skillIds),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SkillGroup[]>(["skills", "groups"], (old) =>
+        old?.map((group) => (group.id === updated.id ? updated : group)),
+      );
+    },
+  });
+}
+
+export function useToggleSkillGroupApp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      app,
+      enabled,
+    }: {
+      id: string;
+      app: AppId;
+      enabled: boolean;
+    }) => skillsApi.toggleGroupApp(id, app, enabled),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["skills", "installed"] });
+    },
+  });
+}
+
 // ========== skills.sh 搜索 ==========
 
 /**
@@ -360,6 +451,7 @@ export type {
   ImportSkillSelection,
   SkillBackupEntry,
   SkillUpdateInfo,
+  SkillGroup,
   SkillsShSearchResult,
   AppId,
 };

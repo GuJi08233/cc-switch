@@ -5,6 +5,7 @@
 //! - SSOT 存储在 ~/.cc-switch/skills/
 
 use crate::app_config::{AppType, InstalledSkill, UnmanagedSkill};
+use crate::database::{SkillGroup, SkillGroupToggleResult};
 use crate::error::format_skill_error;
 use crate::services::skill::{
     DiscoverableSkill, ImportSkillSelection, MigrationResult, Skill, SkillBackupEntry, SkillRepo,
@@ -112,6 +113,68 @@ pub fn import_skills_from_apps(
     app_state: State<'_, AppState>,
 ) -> Result<Vec<InstalledSkill>, String> {
     SkillService::import_from_apps(&app_state.db, imports).map_err(|e| e.to_string())
+}
+
+// ========== Skills 分组命令 ==========
+
+#[tauri::command]
+pub fn get_skill_groups(app_state: State<'_, AppState>) -> Result<Vec<SkillGroup>, String> {
+    app_state.db.get_skill_groups().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_skill_group(
+    name: String,
+    app_state: State<'_, AppState>,
+) -> Result<SkillGroup, String> {
+    app_state
+        .db
+        .create_skill_group(&name)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_skill_group(
+    id: String,
+    name: String,
+    app_state: State<'_, AppState>,
+) -> Result<SkillGroup, String> {
+    app_state
+        .db
+        .update_skill_group(&id, &name)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_skill_group(id: String, app_state: State<'_, AppState>) -> Result<bool, String> {
+    app_state
+        .db
+        .delete_skill_group(&id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_skill_group_members(
+    id: String,
+    skill_ids: Vec<String>,
+    app_state: State<'_, AppState>,
+) -> Result<SkillGroup, String> {
+    app_state
+        .db
+        .replace_skill_group_members(&id, &skill_ids)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn toggle_skill_group_app(
+    id: String,
+    app: String,
+    enabled: bool,
+    app_state: State<'_, AppState>,
+) -> Result<SkillGroupToggleResult, String> {
+    let app_type = parse_app_type(&app)?;
+    SkillService::toggle_group_app(&app_state.db, &id, &app_type, enabled)
+        .map_err(|e| e.to_string())
 }
 
 // ========== 发现功能命令 ==========

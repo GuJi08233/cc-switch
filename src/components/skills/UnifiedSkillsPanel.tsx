@@ -43,6 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SkillGroupsSection } from "@/components/skills/SkillGroupsSection";
 
 interface UnifiedSkillsPanelProps {
   onOpenDiscovery: () => void;
@@ -401,6 +402,7 @@ const UnifiedSkillsPanel = React.forwardRef<
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
+        {!isLoading && <SkillGroupsSection skills={skills ?? []} />}
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">
             {t("skills.loading")}

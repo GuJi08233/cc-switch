@@ -113,7 +113,10 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
 
-        // 7. Settings 表
+        // 7. Skill Groups 与成员关系表
+        Self::create_skill_group_tables(conn)?;
+
+        // 8. Settings 表
         conn.execute(
             "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)",
             [],
@@ -392,6 +395,31 @@ impl Database {
         Ok(())
     }
 
+    fn create_skill_group_tables(conn: &Connection) -> Result<(), AppError> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS skill_groups (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_groups_name_nocase
+                ON skill_groups(name COLLATE NOCASE);
+            CREATE TABLE IF NOT EXISTS skill_group_members (
+                group_id TEXT NOT NULL,
+                skill_id TEXT NOT NULL,
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (group_id, skill_id),
+                FOREIGN KEY (group_id) REFERENCES skill_groups(id) ON DELETE CASCADE,
+                FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_skill_group_members_skill
+                ON skill_group_members(skill_id);",
+        )
+        .map_err(|e| AppError::Database(format!("创建 Skills 分组表失败: {e}")))?;
+        Ok(())
+    }
+
     /// 应用 Schema 迁移
     pub(crate) fn apply_schema_migrations(&self) -> Result<(), AppError> {
         let conn = lock_conn!(self.conn);
@@ -477,6 +505,11 @@ impl Database {
                         log::info!("迁移数据库从 v11 到 v12（添加项目 Profiles 表）");
                         Self::migrate_v11_to_v12(conn)?;
                         Self::set_user_version(conn, 12)?;
+                    }
+                    12 => {
+                        log::info!("迁移数据库从 v12 到 v13（添加 Skills 分组）");
+                        Self::migrate_v12_to_v13(conn)?;
+                        Self::set_user_version(conn, 13)?;
                     }
                     _ => {
                         return Err(AppError::Database(format!(
@@ -1244,6 +1277,12 @@ impl Database {
         }
 
         log::info!("v9 -> v10 迁移完成：已添加 Hermes Agent 支持");
+        Ok(())
+    }
+
+    fn migrate_v12_to_v13(conn: &Connection) -> Result<(), AppError> {
+        Self::create_skill_group_tables(conn)?;
+        log::info!("v12 -> v13 迁移完成：已添加 Skills 分组表");
         Ok(())
     }
 

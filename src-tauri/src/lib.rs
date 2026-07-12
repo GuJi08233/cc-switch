@@ -42,7 +42,9 @@ pub use codex_config::{get_codex_auth_path, get_codex_config_path, write_codex_l
 pub use commands::open_provider_terminal;
 pub use commands::*;
 pub use config::{get_claude_mcp_path, get_claude_settings_path, read_json_file};
-pub use database::{Database, Profile};
+pub use database::{
+    Database, Profile, SkillGroup, SkillGroupToggleFailure, SkillGroupToggleResult,
+};
 pub use deeplink::{import_provider_from_deeplink, parse_deeplink_url, DeepLinkImportRequest};
 pub use error::AppError;
 pub use mcp::{
@@ -1337,6 +1339,12 @@ pub fn run() {
             commands::toggle_skill_app,
             commands::scan_unmanaged_skills,
             commands::import_skills_from_apps,
+            commands::get_skill_groups,
+            commands::create_skill_group,
+            commands::update_skill_group,
+            commands::delete_skill_group,
+            commands::set_skill_group_members,
+            commands::toggle_skill_group_app,
             commands::discover_available_skills,
             commands::check_skill_updates,
             commands::update_skill,

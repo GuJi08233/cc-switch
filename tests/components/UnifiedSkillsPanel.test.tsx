@@ -23,6 +23,12 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/hooks/useSkills", () => ({
+  useSkillGroups: () => ({ data: [], isLoading: false }),
+  useCreateSkillGroup: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateSkillGroup: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSkillGroup: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSetSkillGroupMembers: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useToggleSkillGroupApp: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useInstalledSkills: () => ({
     data: [],
     isLoading: false,

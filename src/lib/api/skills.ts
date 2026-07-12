@@ -49,6 +49,28 @@ export interface SkillBackupEntry {
   skill: InstalledSkill;
 }
 
+/** 已安装 Skill 的逻辑分组。成员仅保存 Skill ID，Skill 可同时属于多个分组。 */
+export interface SkillGroup {
+  id: string;
+  name: string;
+  skillIds: string[];
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface SkillGroupToggleFailure {
+  skillId: string;
+  error: string;
+}
+
+export interface SkillGroupToggleResult {
+  groupId: string;
+  app: AppId;
+  enabled: boolean;
+  succeeded: string[];
+  failed: SkillGroupToggleFailure[];
+}
+
 /** 可发现的 Skill（来自仓库） */
 export interface DiscoverableSkill {
   key: string;
@@ -202,6 +224,42 @@ export const skillsApi = {
   /** 更新单个 Skill */
   async updateSkill(id: string): Promise<InstalledSkill> {
     return await invoke("update_skill", { id });
+  },
+
+  // ========== Skill 分组 ==========
+
+  /** 获取全部 Skill 分组 */
+  async getGroups(): Promise<SkillGroup[]> {
+    return await invoke("get_skill_groups");
+  },
+
+  /** 创建 Skill 分组 */
+  async createGroup(name: string): Promise<SkillGroup> {
+    return await invoke("create_skill_group", { name });
+  },
+
+  /** 重命名 Skill 分组 */
+  async updateGroup(id: string, name: string): Promise<SkillGroup> {
+    return await invoke("update_skill_group", { id, name });
+  },
+
+  /** 删除分组。只删除分组关系，不卸载 Skill。 */
+  async deleteGroup(id: string): Promise<boolean> {
+    return await invoke("delete_skill_group", { id });
+  },
+
+  /** 覆盖设置分组成员 */
+  async setGroupMembers(id: string, skillIds: string[]): Promise<SkillGroup> {
+    return await invoke("set_skill_group_members", { id, skillIds });
+  },
+
+  /** 批量切换分组内全部 Skill 在指定应用的启用状态 */
+  async toggleGroupApp(
+    id: string,
+    app: AppId,
+    enabled: boolean,
+  ): Promise<SkillGroupToggleResult> {
+    return await invoke("toggle_skill_group_app", { id, app, enabled });
   },
 
   /** 迁移 Skill 存储位置 */

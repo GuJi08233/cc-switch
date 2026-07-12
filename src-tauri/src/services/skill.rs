@@ -17,7 +17,7 @@ use tokio::time::timeout;
 
 use crate::app_config::{AppType, InstalledSkill, SkillApps, UnmanagedSkill};
 use crate::config::get_app_config_dir;
-use crate::database::Database;
+use crate::database::{Database, SkillGroupToggleFailure, SkillGroupToggleResult};
 use crate::error::format_skill_error;
 
 // ========== 数据结构 ==========
@@ -1359,6 +1359,7 @@ impl SkillService {
         let mut skill = db
             .get_installed_skill(id)?
             .ok_or_else(|| anyhow!("Skill not found: {id}"))?;
+        let was_enabled = skill.apps.is_enabled_for(app);
 
         // 更新状态
         skill.apps.set_enabled_for(app, enabled);
@@ -1370,12 +1371,76 @@ impl SkillService {
             Self::remove_from_app(&skill.directory, app)?;
         }
 
-        // 更新数据库
-        db.update_skill_apps(id, &skill.apps)?;
+        // 更新数据库。若并发卸载导致记录已经不存在，不能误报成功；
+        // 同时清理可能刚复制出的应用目录，避免留下未受管理的 Skill。
+        match db.update_skill_apps(id, &skill.apps) {
+            Ok(true) => {}
+            Ok(false) => {
+                let _ = Self::remove_from_app(&skill.directory, app);
+                return Err(anyhow!("Skill was removed while updating: {id}"));
+            }
+            Err(err) => {
+                // 数据库失败时尽量恢复切换前的文件状态。
+                if was_enabled {
+                    let _ = Self::sync_to_app_dir(&skill.directory, app);
+                } else {
+                    let _ = Self::remove_from_app(&skill.directory, app);
+                }
+                return Err(err.into());
+            }
+        }
 
         log::info!("Skill {} 的 {:?} 状态已更新为 {}", skill.name, app, enabled);
 
         Ok(())
+    }
+
+    /// 对分组内的 Skills 执行单一应用的批量启用/禁用。
+    ///
+    /// 文件系统无法与 SQLite 组成同一个事务，因此逐项执行并返回明确的成功/失败
+    /// 明细；失败项不会阻止其余成员继续处理，调用方可以安全重试失败项。
+    pub fn toggle_group_app(
+        db: &Arc<Database>,
+        group_id: &str,
+        app: &AppType,
+        enabled: bool,
+    ) -> Result<SkillGroupToggleResult> {
+        if matches!(app, AppType::ClaudeDesktop | AppType::OpenClaw) {
+            return Err(anyhow!("应用 {} 不支持 Skills", app.as_str()));
+        }
+
+        let group = db
+            .get_skill_group(group_id)?
+            .ok_or_else(|| anyhow!("Skill 分组不存在: {group_id}"))?;
+        let mut succeeded = Vec::new();
+        let mut failed = Vec::new();
+
+        for skill_id in group.skill_ids {
+            match Self::toggle_app(db, &skill_id, app, enabled) {
+                Ok(()) => succeeded.push(skill_id),
+                Err(err) => {
+                    log::warn!(
+                        "批量切换 Skill 分组 {} 的成员 {} 到 {}={} 失败: {err:#}",
+                        group_id,
+                        skill_id,
+                        app.as_str(),
+                        enabled
+                    );
+                    failed.push(SkillGroupToggleFailure {
+                        skill_id,
+                        error: err.to_string(),
+                    });
+                }
+            }
+        }
+
+        Ok(SkillGroupToggleResult {
+            group_id: group_id.to_string(),
+            app: app.as_str().to_string(),
+            enabled,
+            succeeded,
+            failed,
+        })
     }
 
     /// 扫描未管理的 Skills
