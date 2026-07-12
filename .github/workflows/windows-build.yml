@@ -76,3 +76,28 @@ jobs:
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
             src-tauri/target/x86_64-pc-windows-msvc/release/cc-switch.exe
+
+  publish-windows-release:
+    name: Publish Windows prerelease
+    if: startsWith(github.ref, 'refs/tags/windows-build-')
+    needs: build-windows-x64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: cc-switch-windows-x64-${{ github.ref_name }}
+          path: release-assets
+
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "CC Switch Windows x64 - $GITHUB_REF_NAME" \
+            --prerelease \
+            --notes "Windows x64 test build. Includes the MSI installer and executable."
