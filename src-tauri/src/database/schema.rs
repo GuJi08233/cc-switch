@@ -2891,11 +2891,10 @@ mod tests {
         )?);
 
         // 分组数据必须保留
-        let name: String = conn.query_row(
-            "SELECT name FROM skill_groups WHERE id = 'g1'",
-            [],
-            |row| row.get(0),
-        )?;
+        let name: String =
+            conn.query_row("SELECT name FROM skill_groups WHERE id = 'g1'", [], |row| {
+                row.get(0)
+            })?;
         assert_eq!(name, "Test");
 
         Ok(())
